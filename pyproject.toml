@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "wheel", "Cython", "pybind11"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sdk"
+description = "Python SDK"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+authors = [{ name = "ckirua", email = "aquipongoalgo.dsz@gmail.com" }]
+requires-python = ">=3.13"
+dynamic = ["version"]
+
+
+[tool.setuptools]
+include-package-data = true
+[tool.setuptools.dynamic]
+version = { attr = "sdk.__version__" }
+

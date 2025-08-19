@@ -1,0 +1,3 @@
+Cython
+pybind11
+setuptools

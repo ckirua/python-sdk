@@ -1,0 +1,40 @@
+{
+    "name": "Example Configuration",
+    "version": "1.0.0",
+    "settings": {
+        "debug": true,
+        "log_level": "info",
+        "max_connections": 100,
+        "timeout": 30.5
+    },
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "username": "admin",
+        "password": "secret123",
+        "tables": ["users", "products", "orders"]
+    },
+    "features": {
+        "enabled": true,
+        "options": {
+            "cache": true,
+            "compression": false,
+            "encryption": true
+        }
+    },
+    "paths": {
+        "data": "/var/data",
+        "logs": "/var/logs",
+        "temp": "/tmp"
+    },
+    "numbers": [1, 2, 3, 4, 5],
+    "nested": {
+        "level1": {
+            "level2": {
+                "level3": {
+                    "value": "deeply nested"
+                }
+            }
+        }
+    }
+}
