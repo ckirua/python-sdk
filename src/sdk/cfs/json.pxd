@@ -1,5 +1,3 @@
-# json_parser.pxd
-
 from libc.stdio cimport FILE
 from libc.stdlib cimport free, realloc
 from libc.string cimport memcpy
