@@ -41,7 +41,6 @@ cdef class HTTPRequest:
         self.params = params
         self.data = data
 
-
 cdef class HTTPClient:
     cdef:
         object _session
@@ -104,3 +103,12 @@ cdef class HTTPClient:
     async def wait_connection(self, timeout: Optional[float] = None) -> None:
         await asyncio.wait_for(self._connection_event.wait(), timeout=timeout)
 
+    async def request(self, request: HTTPRequest, *args: Any, **kwargs: Any) -> HTTPResponse:
+        resp = await self._request(
+            url=request.url,
+            method=request.method,
+            headers=request.headers,
+            params=request.params,
+            data=request.data,
+        )
+        return HTTPResponse(resp.status_code, dict(resp.headers), await resp.content())
