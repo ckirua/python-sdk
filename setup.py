@@ -75,7 +75,7 @@ cython_extensions = [
         ],
         language="c",
     ),
-        Extension(
+    Extension(
         "sdk.cfs.*",
         ["src/sdk/cfs/*.pyx"],
         extra_compile_args=[
@@ -86,6 +86,18 @@ cython_extensions = [
         ],
         language="c++",
     ),
+    Extension(
+        "sdk.cnet.*",
+        ["src/sdk/cnet/*.pyx"],
+        extra_compile_args=[
+            "-O3",
+            "-march=native",
+            "-Wno-unused-function",
+            "-Wno-unused-variable",
+        ],
+        language="c",
+    ),
+
 ]
 pybind_extensions = [
     Extension(
