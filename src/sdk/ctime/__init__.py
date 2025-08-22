@@ -25,7 +25,11 @@ from .conversions import (
 )
 from .iterators import StrfTimeIterator, DateTimeIterator
 from .ranges import datetime_range, strftime_range
-
+from .rfc2822 import (
+    parse_rfc2822_bytes_to_timestamp,
+    parse_rfc2822_bytes_to_timestamp_with_tz,
+    parse_rfc2822_bytes_to_datetime,
+)
 
 __all__ = (
     # clock.c
@@ -48,6 +52,10 @@ __all__ = (
     "ns_to_datetime",
     "s_to_datetime",
     "us_to_datetime",
+    # rfc2822.pyx
+    "parse_rfc2822_bytes_to_timestamp",
+    "parse_rfc2822_bytes_to_timestamp_with_tz",
+    "parse_rfc2822_bytes_to_datetime",
 )
 if not sys.platform.startswith("win"):
     __all__ += (

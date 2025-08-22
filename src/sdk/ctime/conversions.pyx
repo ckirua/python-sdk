@@ -29,8 +29,6 @@ cdef extern from "datetime.h":
         int (*PyDateTime_DATE_GET_MONTH)(PyObject*)
         int (*PyDateTime_DATE_GET_YEAR)(PyObject*)
 
-    PyDateTime_CAPI *PyDateTimeAPI
-
 
 cdef:
     int64_t NS_PER_US = 1000
