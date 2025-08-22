@@ -1,7 +1,16 @@
 // Implementation of AbstractSocketParameters and TCPSocketParameters in raw C using Python C API
+// Optimized for low latency: minimize allocations, avoid PyUnicode_Join, use static buffers for url
 
+// This file is a C extension for Python, implementing two classes:
+//   - AbstractSocketParameters (abstract base)
+//   - TCPSocketParameters (concrete, for TCP sockets)
+// It is intended to be imported as sdk.cnet.parameters
+
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <structmember.h>
+#include <stdio.h>
+#include <string.h>
 
 // ---------------- AbstractSocketParameters ----------------
 
@@ -50,10 +59,10 @@ static PyGetSetDef AbstractSocketParameters_getset[] = {
 
 static PyTypeObject AbstractSocketParametersType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "cnet.AbstractSocketParameters",
+    .tp_name = "sdk.cnet.parameters.AbstractSocketParameters",
     .tp_basicsize = sizeof(AbstractSocketParametersObject),
     .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_new = PyType_GenericNew,
     .tp_init = (initproc)AbstractSocketParameters_init,
     .tp_dealloc = (destructor)AbstractSocketParameters_dealloc,
@@ -64,6 +73,10 @@ static PyTypeObject AbstractSocketParametersType = {
 
 typedef struct {
     AbstractSocketParametersObject base;
+    // For url optimization: cache the last url string and its components
+    PyObject *_url_cache;      // PyUnicode object, NULL if invalid
+    Py_hash_t _host_hash;
+    long _port_val;
 } TCPSocketParametersObject;
 
 static int
@@ -72,6 +85,12 @@ TCPSocketParameters_init(TCPSocketParametersObject *self, PyObject *args, PyObje
     PyObject *host = NULL;
     PyObject *port = NULL;
     static char *kwlist[] = {"host", "port", NULL};
+
+    // Invalidate url cache
+    Py_XDECREF(self->_url_cache);
+    self->_url_cache = NULL;
+    self->_host_hash = -1;
+    self->_port_val = -1;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist, &host, &port))
         return -1;
@@ -94,84 +113,101 @@ TCPSocketParameters_init(TCPSocketParametersObject *self, PyObject *args, PyObje
     Py_XDECREF(self->base._filename);
     self->base._filename = NULL;
 
+    // Invalidate url cache again (in case of re-init)
+    Py_XDECREF(self->_url_cache);
+    self->_url_cache = NULL;
+    self->_host_hash = -1;
+    self->_port_val = -1;
+
     return 0;
 }
 
+static void
+TCPSocketParameters_dealloc(TCPSocketParametersObject *self)
+{
+    Py_XDECREF(self->_url_cache);
+    AbstractSocketParameters_dealloc((AbstractSocketParametersObject *)self);
+}
+
+// Ultra-fast url property: cache, avoid repeated PyUnicode_AsUTF8, avoid snprintf if possible
 static PyObject *
 TCPSocketParameters_get_url(TCPSocketParametersObject *self, void *closure)
 {
-    // Return f"{self->_protocol}://{self->_host}:{self->_port}"
-    PyObject *protocol = self->base._protocol;
+    // If cache is valid, return it
     PyObject *host = self->base._host;
     PyObject *port = self->base._port;
 
-    // Defensive: fallback to defaults if any are missing
-    if (!protocol) {
-        protocol = PyUnicode_FromString("tcp");
-        if (!protocol) return NULL;
-    } else {
-        Py_INCREF(protocol);
+    // Compute hash of host and value of port
+    Py_hash_t host_hash = -1;
+    long port_val = -1;
+    if (host && PyUnicode_Check(host)) {
+        host_hash = PyObject_Hash(host);
+        if (host_hash == -1 && PyErr_Occurred()) return NULL;
     }
-    if (!host) {
-        host = PyUnicode_FromString("localhost");
-        if (!host) {
-            Py_DECREF(protocol);
-            return NULL;
-        }
-    } else {
-        Py_INCREF(host);
-    }
-    if (!port) {
-        port = PyLong_FromLong(0);
-        if (!port) {
-            Py_DECREF(protocol);
-            Py_DECREF(host);
-            return NULL;
-        }
-    } else {
-        Py_INCREF(port);
+    if (port && PyLong_Check(port)) {
+        port_val = PyLong_AsLong(port);
+        if (PyErr_Occurred()) return NULL;
     }
 
-    PyObject *port_str = PyObject_Str(port);
-    if (!port_str) {
-        Py_DECREF(protocol);
-        Py_DECREF(host);
-        Py_DECREF(port);
+    if (self->_url_cache &&
+        self->_host_hash == host_hash &&
+        self->_port_val == port_val)
+    {
+        Py_INCREF(self->_url_cache);
+        return self->_url_cache;
+    }
+
+    // Compose url: "tcp://<host>:<port>"
+    // Note: host is NOT always "localhost". It is set by the user and can be any string.
+    // If host is not provided, default to "localhost".
+    const char *protocol_cstr = "tcp";
+    const char *host_cstr = "localhost";
+    char portbuf[16];
+    Py_ssize_t host_len = 0;
+
+    if (host && PyUnicode_Check(host)) {
+        host_cstr = PyUnicode_AsUTF8AndSize(host, &host_len);
+        if (!host_cstr) return NULL;
+    } else {
+        host_len = strlen(host_cstr);
+    }
+
+    int portlen = snprintf(portbuf, sizeof(portbuf), "%ld", port_val >= 0 ? port_val : 0);
+    if (portlen < 0 || portlen >= (int)sizeof(portbuf)) {
+        PyErr_SetString(PyExc_ValueError, "Port value too large");
         return NULL;
     }
 
-    // Use PyUnicode_Join for performance and to avoid format string issues
-    // Build: [protocol, "://", host, ":", port_str]
-    PyObject *sep = PyUnicode_New(0, 127); // empty separator
-    if (!sep) {
-        Py_DECREF(protocol);
-        Py_DECREF(host);
-        Py_DECREF(port);
-        Py_DECREF(port_str);
+    // Precompute total length: "tcp://" + host + ":" + port
+    static const char prefix[] = "tcp://";
+    size_t prefix_len = sizeof(prefix) - 1;
+    size_t total_len = prefix_len + host_len + 1 + portlen;
+
+    // Allocate PyUnicode object directly (UTF-8, one-byte kind)
+    PyObject *url_obj = PyUnicode_New(total_len, 127);
+    if (!url_obj) return NULL;
+    void *data = PyUnicode_DATA(url_obj);
+
+    // Copy bytes directly
+    memcpy(data, prefix, prefix_len);
+    memcpy((char *)data + prefix_len, host_cstr, host_len);
+    ((char *)data)[prefix_len + host_len] = ':';
+    memcpy((char *)data + prefix_len + host_len + 1, portbuf, portlen);
+
+    // Set the length and ready the string
+    if (PyUnicode_READY(url_obj) < 0) {
+        Py_DECREF(url_obj);
         return NULL;
     }
-    PyObject *parts = PyTuple_New(5);
-    if (!parts) {
-        Py_DECREF(protocol);
-        Py_DECREF(host);
-        Py_DECREF(port);
-        Py_DECREF(port_str);
-        Py_DECREF(sep);
-        return NULL;
-    }
-    PyTuple_SET_ITEM(parts, 0, protocol); // steals ref
-    PyTuple_SET_ITEM(parts, 1, PyUnicode_FromString("://")); // new ref
-    PyTuple_SET_ITEM(parts, 2, host); // steals ref
-    PyTuple_SET_ITEM(parts, 3, PyUnicode_FromString(":")); // new ref
-    PyTuple_SET_ITEM(parts, 4, port_str); // steals ref
 
-    PyObject *url = PyUnicode_Join(sep, parts);
+    // Cache the result
+    Py_XDECREF(self->_url_cache);
+    self->_url_cache = url_obj;
+    Py_INCREF(url_obj);
+    self->_host_hash = host_hash;
+    self->_port_val = port_val;
 
-    Py_DECREF(parts);
-    Py_DECREF(sep);
-    Py_DECREF(port); // Only port is not stolen by tuple
-
-    return url;
+    return url_obj;
 }
 
 static PyGetSetDef TCPSocketParameters_getset[] = {
@@ -181,13 +217,14 @@ static PyGetSetDef TCPSocketParameters_getset[] = {
 
 static PyTypeObject TCPSocketParametersType = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    .tp_name = "cnet.TCPSocketParameters",
+    .tp_name = "sdk.cnet.parameters.TCPSocketParameters",
     .tp_basicsize = sizeof(TCPSocketParametersObject),
     .tp_itemsize = 0,
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_base = &AbstractSocketParametersType,
     .tp_new = PyType_GenericNew,
     .tp_init = (initproc)TCPSocketParameters_init,
+    .tp_dealloc = (destructor)TCPSocketParameters_dealloc,
     .tp_getset = TCPSocketParameters_getset,
 };
 
@@ -195,7 +232,7 @@ static PyTypeObject TCPSocketParametersType = {
 
 static PyModuleDef parametersmodule = {
     PyModuleDef_HEAD_INIT,
-    "parameters",
+    "sdk.cnet.parameters",
     "C implementation of socket parameter classes",
     -1,
     NULL, NULL, NULL, NULL, NULL
