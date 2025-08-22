@@ -6,35 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from ..cuuid import randstr_16
-
-
-cdef class AbstractSocketParameters:
-    __slots__ = ["_protocol", "_host", "_port", "_dir", "_filename"]
-    _protocol: str
-    _host: Optional[str]
-    _port: Optional[int]
-    _dir: Optional[str]
-    _filename: Optional[str]
-
-    def __init__(self):
-        pass
-
-    @property
-    def url(self):
-        raise NotImplementedError
-
-
-cdef class TCPSocketParameters(AbstractSocketParameters):
-    def __init__(self, host: str, port: int):
-        self._host = host
-        self._port = port
-        self._protocol = "tcp"
-
-    @property
-    def url(self):
-        return f"{self._protocol}://{self._host}:{self._port}"
-
-
+from .parameters import AbstractSocketParameters, TCPSocketParameters
+ 
 class ZMQSocket(object):
     def __init__(
         self,

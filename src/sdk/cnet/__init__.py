@@ -8,8 +8,6 @@ from .http import (
     verify_http_status_code,
 )
 from .zmq import (
-    AbstractSocketParameters,
-    TCPSocketParameters,
     ZMQSocket,
     ZMQPublisher,
     ZMQSubscriber,
@@ -18,13 +16,10 @@ from .zmq import (
     ZMQPush,
     ZMQPull,
 )
-from .fzmq import (
-    FAbstractSocketParameters,
-    FTCPSocketParameters,
-)
+
 from .parameters import (
-    AbstractSocketParameters as PAbstractSocketParameters,
-    TCPSocketParameters as PTCPSocketParameters,
+    AbstractSocketParameters,
+    TCPSocketParameters,
 )
 
 __all__: Tuple[str, ...] = (
@@ -42,8 +37,5 @@ __all__: Tuple[str, ...] = (
     "ZMQDealer",
     "ZMQPush",
     "ZMQPull",
-    "FAbstractSocketParameters",
-    "FTCPSocketParameters",
-    "PAbstractSocketParameters",
-    "PTCPSocketParameters",
+
 )
