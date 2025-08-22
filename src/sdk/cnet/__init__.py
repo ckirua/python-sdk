@@ -7,7 +7,20 @@ from .http import (
     HTTPResponse,
     verify_http_status_code,
 )
+from .zmq import (
+    ZMQSocket,
+    ZMQPublisher,
+    ZMQSubscriber,
+    ZMQRouter,
+    ZMQDealer,
+    ZMQPush,
+    ZMQPull,
+)
 
+from .parameters import (
+    AbstractSocketParameters,
+    TCPSocketParameters,
+)
 
 __all__: Tuple[str, ...] = (
     "HTTPResponse",
@@ -15,4 +28,14 @@ __all__: Tuple[str, ...] = (
     "HTTPClient",
     "HTTPRequest",
     "verify_http_status_code",
+    "AbstractSocketParameters",
+    "TCPSocketParameters",
+    "ZMQSocket",
+    "ZMQPublisher",
+    "ZMQSubscriber",
+    "ZMQRouter",
+    "ZMQDealer",
+    "ZMQPush",
+    "ZMQPull",
+
 )

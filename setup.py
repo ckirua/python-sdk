@@ -50,6 +50,17 @@ c_extensions = [
         ],
         language="c",
     ),
+    Extension(
+        "sdk.cnet.parameters",
+        ["src/sdk/cnet/parameters.c"],
+        extra_compile_args=[
+            "-O3",
+            "-march=native",
+            "-Wno-unused-function", 
+            "-Wno-unused-variable",
+        ],
+        language="c",
+    ),
 ]
 
 cython_extensions = [

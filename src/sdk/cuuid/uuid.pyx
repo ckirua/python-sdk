@@ -46,7 +46,7 @@ _hextable[:] = [
 cdef std_UUID = uuid.UUID
 
 
-cdef uuid_bytes_from_str(str u, char *out):
+cdef void uuid_bytes_from_str(str u, char *out):
     cdef:
         const char *orig_buf
         Py_ssize_t size
@@ -97,7 +97,7 @@ cdef class __UUIDReplaceMe:
     pass
 
 
-cdef uuid_from_buf(const char *buf):
+cdef UUID uuid_from_buf(const char *buf):
     cdef:
         UUID u = UUID.__new__(UUID)
     memcpy(u._data, buf, 16)
@@ -106,10 +106,6 @@ cdef uuid_from_buf(const char *buf):
 @cython.final
 @cython.no_gc_clear
 cdef class UUID(__UUIDReplaceMe):
-    cdef char[16] _data
-    cdef object _int
-    cdef object _hash
-
     def __cinit__(self):
         self._int = None
         self._hash = None
