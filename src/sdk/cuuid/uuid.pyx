@@ -12,7 +12,6 @@ from libc.stdint cimport uint8_t, int8_t
 from libc.string cimport memcpy, memcmp
 
 cdef extern from "Python.h":
-    int PyUnicode_1BYTE_KIND
     const char* PyUnicode_AsUTF8AndSize(
         object unicode, Py_ssize_t *size) except NULL
     object PyUnicode_FromKindAndData(

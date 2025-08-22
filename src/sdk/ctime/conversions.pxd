@@ -46,15 +46,15 @@ cdef:
     int64_t UNIX_EPOCH_NS
 
 # Internal conversion functions
-cdef inline object _ns_to_datetime(int64_t ns_timestamp)
-cdef inline object _us_to_datetime(int64_t us_timestamp)
-cdef inline object _ms_to_datetime(int64_t ms_timestamp)
-cdef inline object _s_to_datetime(int64_t s_timestamp)
+cdef object _ns_to_datetime(int64_t ns_timestamp)
+cdef object _us_to_datetime(int64_t us_timestamp)
+cdef object _ms_to_datetime(int64_t ms_timestamp)
+cdef object _s_to_datetime(int64_t s_timestamp)
 
-cdef inline int64_t _datetime_to_ns(datetime dt)
-cdef inline int64_t _datetime_to_us(datetime dt)
-cdef inline int64_t _datetime_to_ms(datetime dt)
-cdef inline double _datetime_to_s(datetime dt)
+cdef int64_t _datetime_to_ns(datetime dt)
+cdef int64_t _datetime_to_us(datetime dt)
+cdef int64_t _datetime_to_ms(datetime dt)
+cdef double _datetime_to_s(datetime dt)
 
 # Public API
 cpdef datetime ns_to_datetime(int64_t ns_timestamp)
@@ -67,4 +67,4 @@ cpdef int64_t datetime_to_us(datetime dt)
 cpdef int64_t datetime_to_ms(datetime dt)
 cpdef double datetime_to_s(datetime dt)
 
-cpdef inline int64_t change_ts_units(int64_t timestamp, str from_unit='ns', str to_unit='ns') except -1 nogil
+cpdef int64_t change_ts_units(int64_t timestamp, str from_unit=*, str to_unit=*) except -1 nogil

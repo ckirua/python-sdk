@@ -1,7 +1,7 @@
 import platform
 import time
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sdk.ctime import (
     clock_monotonic,
@@ -22,6 +22,9 @@ from sdk.ctime import (
     change_ts_units,
     StrfTimeIterator,
     DateTimeIterator,
+    parse_rfc2822_bytes_to_timestamp,
+    parse_rfc2822_bytes_to_timestamp_with_tz,
+    parse_rfc2822_bytes_to_datetime,
 )
 
 
@@ -181,6 +184,50 @@ class TestConversions(unittest.TestCase):
             change_ts_units(ns, from_unit="foo", to_unit="ns")
         with self.assertRaises(ValueError):
             change_ts_units(ns, from_unit="ns", to_unit="bar")
+
+
+class TestRFC2822(unittest.TestCase):
+
+    def setUp(self):
+        self.date_bytes = b"Fri, 22 Aug 2025 14:58:44 GMT"
+        self.date_bytes_tz = b"Fri, 22 Aug 2025 14:58:44 +0200"
+
+    def test_parse_rfc2822_bytes_to_timestamp(self):
+        ts = parse_rfc2822_bytes_to_timestamp(self.date_bytes)
+        # Should match 2025-08-22 14:58:44 UTC (GMT = UTC, no conversion needed)
+        expected = datetime(2025, 8, 22, 14, 58, 44, tzinfo=timezone.utc).timestamp()
+        self.assertAlmostEqual(ts, expected, places=2)
+
+    def test_parse_rfc2822_bytes_to_timestamp_with_tz(self):
+        ts = parse_rfc2822_bytes_to_timestamp_with_tz(self.date_bytes_tz)
+        # 14:58:44 +0200 is 12:58:44 UTC
+        expected = datetime(2025, 8, 22, 12, 58, 44, tzinfo=timezone.utc).timestamp()
+        self.assertAlmostEqual(ts, expected, places=2)
+
+    def test_parse_rfc2822_bytes_to_datetime(self):
+        dt = parse_rfc2822_bytes_to_datetime(self.date_bytes)
+        self.assertIsInstance(dt, datetime)
+        self.assertEqual(dt.year, 2025)
+        self.assertEqual(dt.month, 8)
+        self.assertEqual(dt.day, 22)
+        self.assertEqual(dt.hour, 14)  # GMT = UTC, so 14:58:44
+        self.assertEqual(dt.minute, 58)
+        self.assertEqual(dt.second, 44)
+        # Should be UTC or naive
+        self.assertTrue(dt.tzinfo is None or dt.tzinfo.utcoffset(dt) in (None, timedelta(0)))
+
+    def test_parse_rfc2822_bytes_to_datetime_with_tz(self):        
+        dt = parse_rfc2822_bytes_to_datetime(self.date_bytes_tz)
+        self.assertIsInstance(dt, datetime)
+        # Should be 12:58:44 UTC
+        self.assertEqual(dt.year, 2025)
+        self.assertEqual(dt.month, 8)
+        self.assertEqual(dt.day, 22)
+        self.assertEqual(dt.hour, 12)
+        self.assertEqual(dt.minute, 58)
+        self.assertEqual(dt.second, 44)
+        # Should be UTC or naive
+        self.assertTrue(dt.tzinfo is None or dt.tzinfo.utcoffset(dt) in (None, timedelta(0)))
 
 
 if __name__ == "__main__":
