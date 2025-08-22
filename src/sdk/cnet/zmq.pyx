@@ -5,9 +5,11 @@ import zmq.asyncio
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from ..cuuid import randstr_16
 from .parameters import AbstractSocketParameters, TCPSocketParameters
  
+from ..cuuid cimport randstr_16
+
+
 class ZMQSocket(object):
     def __init__(
         self,
