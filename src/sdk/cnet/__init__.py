@@ -22,10 +22,6 @@ from .parameters import (
     TCPSocketParameters,
     PGConnectionParameters,
 )
-from .cy_parameters import (
-    CyPGConnectionParameters,
-    PyPGConnectionParameters,
-)
 
 __all__: Tuple[str, ...] = (
     "HTTPResponse",
@@ -43,6 +39,4 @@ __all__: Tuple[str, ...] = (
     "ZMQPush",
     "ZMQPull",
     "PGConnectionParameters",
-    "CyPGConnectionParameters",
-    "PyPGConnectionParameters",
 )
