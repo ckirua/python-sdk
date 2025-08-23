@@ -8,6 +8,15 @@
 
 #include "parameters.h"
 
+// OPTIMIZATION 10: Interned common strings for fast pointer comparison
+static PyObject *INTERN_POSTGRESQL = NULL;
+static PyObject *INTERN_LOCALHOST = NULL;
+
+// Fast default driver check using pointer comparison
+static inline int is_default_driver(PyObject *driver) {
+    return driver == INTERN_POSTGRESQL;  // O(1) pointer comparison
+}
+
 // ---------------- AbstractSocketParameters ----------------
 
 static int
@@ -177,8 +186,7 @@ PGConnectionParameters_init(PGConnectionParametersObject *self, PyObject *args, 
 
     // Set default driver if not provided
     if (!driver) {
-        driver = PyUnicode_FromString("postgresql");
-        if (!driver) return -1;
+        driver = INTERN_POSTGRESQL;  // OPTIMIZATION 10: Use interned string
     } else {
         Py_INCREF(driver);
     }
@@ -463,8 +471,15 @@ PGConnectionParameters_set_driver(PGConnectionParametersObject *self, PyObject *
         return -1;
     }
     
-    Py_XSETREF(self->_driver, value);
-    Py_INCREF(value);
+    // OPTIMIZATION 10: Fast path for default driver using interned string
+    if (value == INTERN_POSTGRESQL) {
+        // Fast path: reuse interned string (no need to increment ref count)
+        self->_driver = INTERN_POSTGRESQL;
+    } else {
+        // Normal path: use provided value
+        Py_XSETREF(self->_driver, value);
+        Py_INCREF(value);
+    }
     
     // Invalidate cache since driver changed
     self->_cache_generation++;
@@ -532,6 +547,14 @@ PyMODINIT_FUNC
 PyInit_parameters(void)
 {
     PyObject *m;
+    
+    // OPTIMIZATION 10: Intern common strings for fast pointer comparison
+    INTERN_POSTGRESQL = PyUnicode_InternFromString("postgresql");
+    if (!INTERN_POSTGRESQL) return NULL;
+    
+    INTERN_LOCALHOST = PyUnicode_InternFromString("localhost");
+    if (!INTERN_LOCALHOST) return NULL;
+    
     if (PyType_Ready(&AbstractSocketParametersType) < 0)
         return NULL;
     if (PyType_Ready(&TCPSocketParametersType) < 0)
