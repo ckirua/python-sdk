@@ -1,8 +1,8 @@
 import unittest
 
-from sdk.cnet.parameters import AbstractSocketParameters, TCPSocketParameters
+from sdk.cnet.parameters import AbstractSocketParameters, TCPSocketParameters, PGConnectionParameters
 
-class TestSocketParameters(unittest.TestCase):
+class TestParameters(unittest.TestCase):
     def test_tcp_socket_parameters_url(self):
         tcp = TCPSocketParameters("127.0.0.1", 5555)
         self.assertEqual(tcp.url, "tcp://127.0.0.1:5555")
@@ -18,5 +18,7 @@ class TestSocketParameters(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             _ = abs_param.url
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_pg_connection_parameters_url(self):
+        # Explicitly specify driver argument
+        pg = PGConnectionParameters("127.0.0.1", 5432, "postgres", "postgres", "test", "postgresql")
+        self.assertEqual(pg.url, "postgresql://postgres:postgres@127.0.0.1:5432/test")

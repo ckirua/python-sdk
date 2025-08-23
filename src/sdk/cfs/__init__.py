@@ -7,6 +7,7 @@ from .flist import (
     ListMMAPFileReader,
     create_list_reader,
 )
+from .toml import read_toml, write_toml
 
 __all__: Tuple[str, ...] = (
     "ZipFile",
@@ -16,4 +17,6 @@ __all__: Tuple[str, ...] = (
     "ListFileReader",
     "ListMMAPFileReader",
     "create_list_reader",
+    "read_toml",
+    "write_toml",
 )
