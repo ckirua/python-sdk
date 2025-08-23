@@ -290,4 +290,13 @@ PyMODINIT_FUNC PyInit_parameters(void);
 #define EXTRACT_PORT_VALUE(port_obj) \
     ((port_obj) && PyLong_Check(port_obj) ? PyLong_AsLong(port_obj) : 0)
 
+// OPTIMIZATION 7: Branch prediction hints for better cache hit performance
+#ifdef __GNUC__
+#define LIKELY(x)   __builtin_expect(!!(x), 1)
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define LIKELY(x)   (x)
+#define UNLIKELY(x) (x)
+#endif
+
 #endif // SDK_CNET_PARAMETERS_H

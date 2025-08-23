@@ -222,6 +222,19 @@ PGConnectionParameters_get_url(PGConnectionParametersObject *self, void *closure
         return NULL;
     }
 
+    // FAST PATH: Quick cache check without function call overhead
+    if (LIKELY(self->_url_cache && self->_cache_generation == 0)) {
+        // Only compute hash if we might have a cache hit
+        Py_hash_t current_hash = compute_combined_hash(self->base._host, self->base._port,
+                                                     self->_user, self->_password, 
+                                                     self->_database, self->_driver);
+        if (LIKELY(self->_combined_hash == current_hash)) {
+            Py_INCREF(self->_url_cache);
+            return self->_url_cache;  // FASTEST possible return - just inc ref and return
+        }
+    }
+    
+    // SLOW PATH: Cache miss - build URL (only when absolutely necessary)
     PyObject *host = self->base._host;
     PyObject *port = self->base._port;
     PyObject *user = self->_user;
@@ -229,22 +242,14 @@ PGConnectionParameters_get_url(PGConnectionParametersObject *self, void *closure
     PyObject *database = self->_database;
     PyObject *driver = self->_driver;
 
-    // OPTIMIZATION 2: Ultra-fast pointer-based hashing (no expensive PyObject_Hash calls)
-    Py_hash_t combined_hash = compute_combined_hash(host, port, user, password, database, driver);
-    
-    if (self->_url_cache && self->_combined_hash == combined_hash && self->_cache_generation == 0) {
-        Py_INCREF(self->_url_cache);
-        return self->_url_cache;
-    }
-
-    // Extract port value for URL construction (still needed)
+    // Extract port value for URL construction (needed for slow path)
     long port_val = 0;
     if (port && PyLong_Check(port)) {
         port_val = PyLong_AsLong(port);
         if (PyErr_Occurred()) return NULL;
     }
 
-    // Get string representations
+    // Get string representations (only in slow path)
     const char *host_cstr = "localhost";
     const char *user_cstr = "";
     const char *password_cstr = "";
@@ -298,11 +303,13 @@ PGConnectionParameters_get_url(PGConnectionParametersObject *self, void *closure
                                                         port_val, database_cstr, database_len);
     if (!url_obj) return NULL;
 
-    // Cache the result
+    // Cache the result with new hash
     PGConnectionParameters_clear_cache(self);
     self->_url_cache = url_obj;
     Py_INCREF(url_obj);
-    self->_combined_hash = combined_hash; // Store combined hash
+    self->_combined_hash = compute_combined_hash(self->base._host, self->base._port,
+                                               self->_user, self->_password, 
+                                               self->_database, self->_driver);
     self->_cache_generation = 0; // Reset generation
 
     return url_obj;

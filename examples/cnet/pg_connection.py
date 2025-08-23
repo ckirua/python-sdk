@@ -83,6 +83,41 @@ def main():
     print()
     
     print("=== Example completed successfully! ===")
+    
+    # Benchmark: Demonstrate fast cache hit performance
+    print("\n=== Performance Benchmark ===")
+    import time
+    
+    # Create object for benchmarking
+    pg_bench = PGConnectionParameters("localhost", 5432, "benchuser", "benchpass", "benchdb")
+    
+    # First call (cache miss - builds URL)
+    start_time = time.perf_counter()
+    url1 = pg_bench.url
+    first_call_time = (time.perf_counter() - start_time) * 1_000_000  # Convert to microseconds
+    
+    # Second call (cache hit - ultra-fast)
+    start_time = time.perf_counter()
+    url2 = pg_bench.url
+    second_call_time = (time.perf_counter() - start_time) * 1_000_000  # Convert to microseconds
+    
+    # Multiple cache hits to show consistency
+    cache_hit_times = []
+    for _ in range(10):
+        start_time = time.perf_counter()
+        _ = pg_bench.url
+        cache_hit_times.append((time.perf_counter() - start_time) * 1_000_000)
+    
+    avg_cache_hit = sum(cache_hit_times) / len(cache_hit_times)
+    
+    print(f"Cache Miss (URL build): {first_call_time:.2f} μs")
+    print(f"Cache Hit (1st):        {second_call_time:.2f} μs")
+    print(f"Cache Hit (avg of 10):  {avg_cache_hit:.2f} μs")
+    print(f"Speedup:                {first_call_time / avg_cache_hit:.1f}x faster")
+    
+    # Verify URLs are identical
+    print(f"URLs identical: {url1 == url2}")
+    print("=== Benchmark completed! ===")
 
 
 if __name__ == "__main__":
