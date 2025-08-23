@@ -20,6 +20,11 @@ from .zmq import (
 from .parameters import (
     AbstractSocketParameters,
     TCPSocketParameters,
+    PGConnectionParameters,
+)
+from .cy_parameters import (
+    CyPGConnectionParameters,
+    PyPGConnectionParameters,
 )
 
 __all__: Tuple[str, ...] = (
@@ -37,5 +42,7 @@ __all__: Tuple[str, ...] = (
     "ZMQDealer",
     "ZMQPush",
     "ZMQPull",
-
+    "PGConnectionParameters",
+    "CyPGConnectionParameters",
+    "PyPGConnectionParameters",
 )

@@ -12,6 +12,7 @@
 #define PARAMETERS_MODULE_NAME "sdk.cnet.parameters"
 #define ABSTRACT_SOCKET_PARAMETERS_CLASS_NAME "AbstractSocketParameters"
 #define TCP_SOCKET_PARAMETERS_CLASS_NAME "TCPSocketParameters"
+#define PG_CONNECTION_PARAMETERS_CLASS_NAME "PGConnectionParameters"
 
 // URL building constants
 #define TCP_PROTOCOL "tcp"
@@ -130,6 +131,145 @@ static inline PyObject *TCPSocketParameters_build_url(const char *host_cstr, Py_
 static int TCPSocketParameters_init(TCPSocketParametersObject *self, PyObject *args, PyObject *kwds);
 static void TCPSocketParameters_dealloc(TCPSocketParametersObject *self);
 static PyObject *TCPSocketParameters_get_url(TCPSocketParametersObject *self, void *closure);
+
+// ---------------- PGConnectionParameters ----------------
+
+typedef struct {
+    AbstractSocketParametersObject base;
+    // Dedicated fields for PG connection parameters (PyObject pointers first)
+    PyObject *_user;
+    PyObject *_password;
+    PyObject *_database;
+    PyObject *_driver;
+    // OPTIMIZED: Single cache validation mechanism
+    PyObject *_url_cache;
+    Py_hash_t _combined_hash;  // Single hash instead of 6 separate hashes
+    int _cache_generation;     // Increment when any field changes
+} PGConnectionParametersObject;
+
+// Inline utility functions for PGConnectionParameters
+static inline void PGConnectionParameters_init_cache(PGConnectionParametersObject *self) {
+    self->_url_cache = NULL;
+    self->_combined_hash = -1; // Initialize combined hash
+    self->_cache_generation = 0; // Initialize generation
+    self->_user = NULL;
+    self->_password = NULL;
+    self->_database = NULL;
+    self->_driver = NULL;
+}
+
+static inline void PGConnectionParameters_clear_cache(PGConnectionParametersObject *self) {
+    Py_XDECREF(self->_url_cache);
+    self->_url_cache = NULL;
+    self->_combined_hash = -1; // Clear combined hash
+    self->_cache_generation++; // Increment generation to invalidate cache
+}
+
+static inline void PGConnectionParameters_clear_fields(PGConnectionParametersObject *self) {
+    Py_XDECREF(self->_user);
+    Py_XDECREF(self->_password);
+    Py_XDECREF(self->_database);
+    Py_XDECREF(self->_driver);
+    self->_user = NULL;
+    self->_password = NULL;
+    self->_database = NULL;
+    self->_driver = NULL;
+}
+
+// OPTIMIZATION 2: Fast combined hash computation
+static inline Py_hash_t compute_combined_hash(PyObject *host, PyObject *port, 
+                                              PyObject *user, PyObject *password, 
+                                              PyObject *database, PyObject *driver) {
+    // Use pointer addresses for ultra-fast hashing since PyUnicode objects are immutable
+    // This avoids expensive string hashing entirely
+    Py_hash_t hash = 0;
+    hash ^= (Py_hash_t)host;
+    hash ^= (Py_hash_t)port << 1;
+    hash ^= (Py_hash_t)user << 2;
+    hash ^= (Py_hash_t)password << 3;
+    hash ^= (Py_hash_t)database << 4;
+    hash ^= (Py_hash_t)driver << 5;
+    return hash;
+}
+
+// URL building utility functions for PGConnectionParameters
+static inline PyObject *PGConnectionParameters_build_url(const char *driver_cstr, Py_ssize_t driver_len,
+                                                        const char *user_cstr, Py_ssize_t user_len,
+                                                        const char *password_cstr, Py_ssize_t password_len,
+                                                        const char *host_cstr, Py_ssize_t host_len,
+                                                        long port_val,
+                                                        const char *database_cstr, Py_ssize_t database_len) {
+    char portbuf[MAX_PORT_LENGTH];
+    int portlen = snprintf(portbuf, sizeof(portbuf), "%ld", port_val >= 0 ? port_val : 0);
+    
+    if (portlen < 0 || portlen >= (int)sizeof(portbuf)) {
+        PyErr_SetString(PyExc_ValueError, "Port value too large");
+        return NULL;
+    }
+
+    // Precompute total length: driver + "://" + user + ":" + password + "@" + host + ":" + port + "/" + database
+    size_t total_len = driver_len + 3 + user_len + 1 + password_len + 1 + host_len + 1 + portlen + 1 + database_len;
+
+    // Allocate PyUnicode object directly (UTF-8, one-byte kind)
+    PyObject *url_obj = PyUnicode_New(total_len, 127);
+    if (!url_obj) return NULL;
+    
+    void *data = PyUnicode_DATA(url_obj);
+    if (!data) {
+        Py_DECREF(url_obj);
+        return NULL;
+    }
+
+    // Copy bytes directly in sequence
+    size_t offset = 0;
+    memcpy((char *)data + offset, driver_cstr, driver_len);
+    offset += driver_len;
+    memcpy((char *)data + offset, "://", 3);
+    offset += 3;
+    memcpy((char *)data + offset, user_cstr, user_len);
+    offset += user_len;
+    ((char *)data)[offset] = ':';
+    offset += 1;
+    memcpy((char *)data + offset, password_cstr, password_len);
+    offset += password_len;
+    ((char *)data)[offset] = '@';
+    offset += 1;
+    memcpy((char *)data + offset, host_cstr, host_len);
+    offset += host_len;
+    ((char *)data)[offset] = ':';
+    offset += 1;
+    memcpy((char *)data + offset, portbuf, portlen);
+    offset += portlen;
+    ((char *)data)[offset] = '/';
+    offset += 1;
+    memcpy((char *)data + offset, database_cstr, database_len);
+
+    // Set the length and ready the string
+    if (PyUnicode_READY(url_obj) < 0) {
+        Py_DECREF(url_obj);
+        return NULL;
+    }
+
+    return url_obj;
+}
+
+// Function prototypes for PGConnectionParameters
+static int PGConnectionParameters_init(PGConnectionParametersObject *self, PyObject *args, PyObject *kwds);
+static void PGConnectionParameters_dealloc(PGConnectionParametersObject *self);
+static PyObject *PGConnectionParameters_get_url(PGConnectionParametersObject *self, void *closure);
+
+// Property getters and setters
+static PyObject *PGConnectionParameters_get_host(PGConnectionParametersObject *self, void *closure);
+static int PGConnectionParameters_set_host(PGConnectionParametersObject *self, PyObject *value, void *closure);
+static PyObject *PGConnectionParameters_get_port(PGConnectionParametersObject *self, void *closure);
+static int PGConnectionParameters_set_port(PGConnectionParametersObject *self, PyObject *value, void *closure);
+static PyObject *PGConnectionParameters_get_user(PGConnectionParametersObject *self, void *closure);
+static int PGConnectionParameters_set_user(PGConnectionParametersObject *self, PyObject *value, void *closure);
+static PyObject *PGConnectionParameters_get_database(PGConnectionParametersObject *self, void *closure);
+static int PGConnectionParameters_set_database(PGConnectionParametersObject *self, PyObject *value, void *closure);
+static PyObject *PGConnectionParameters_get_driver(PGConnectionParametersObject *self, void *closure);
+static int PGConnectionParameters_set_driver(PGConnectionParametersObject *self, PyObject *value, void *closure);
+static int PGConnectionParameters_set_password(PGConnectionParametersObject *self, PyObject *value, void *closure);
 
 // ---------------- Module Functions ----------------
 
