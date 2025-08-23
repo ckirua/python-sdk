@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from sdk.cfs import extract_zip, read_json, write_json
+from sdk.cfs import extract_zip, read_json, write_json, read_toml, write_toml
 
 
 class TestExtractZip(unittest.TestCase):
@@ -71,6 +71,32 @@ class TestJsonReadWrite(unittest.TestCase):
         data2 = read_json(str(self.temp_json_path))
         self.assertEqual(data, data2)
 
+
+class TestTomlReadWrite(unittest.TestCase):
+    def setUp(self):
+        self.example_toml_path = (
+            Path(__file__).parent.parent / "examples" / "cfs" / "data" / "example.toml"
+        )
+        if not self.example_toml_path.exists():
+            self.skipTest(f"Test TOML file not found: {self.example_toml_path}")
+        self.temp_toml_path = self.example_toml_path.parent / "example_out.toml"
+
+    def tearDown(self):
+        if self.temp_toml_path.exists():
+            self.temp_toml_path.unlink()
+
+    def test_read_and_write_toml(self):
+        data = read_toml(str(self.example_toml_path))
+        self.assertIsInstance(data, dict)
+        self.assertIn("title", data)
+        self.assertIn("owner", data)
+        self.assertIn("database", data)
+        # Write it back to a new file
+        write_toml(str(self.temp_toml_path), data)
+        self.assertTrue(self.temp_toml_path.exists())
+        # Read again and compare
+        data2 = read_toml(str(self.temp_toml_path))
+        self.assertEqual(data, data2)
 
 if __name__ == "__main__":
     unittest.main()
