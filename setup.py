@@ -1,8 +1,10 @@
 import platform
 import sys
+import pyarrow
 import pybind11
 from Cython.Build import cythonize
 from setuptools import Extension, find_packages, setup
+import numpy as np
 
 
 def get_build_dir():
@@ -56,7 +58,7 @@ c_extensions = [
         extra_compile_args=[
             "-O3",
             "-march=native",
-            "-Wno-unused-function", 
+            "-Wno-unused-function",
             "-Wno-unused-variable",
         ],
         language="c",
@@ -95,6 +97,9 @@ cython_extensions = [
             "-Wno-unused-function",
             "-Wno-unused-variable",
         ],
+        libraries=pyarrow.get_libraries(),
+        library_dirs=pyarrow.get_library_dirs(),
+        include_dirs=[pyarrow.get_include()] + [np.get_include()],
         language="c++",
     ),
     Extension(
@@ -108,7 +113,6 @@ cython_extensions = [
         ],
         language="c",
     ),
-
 ]
 pybind_extensions = [
     Extension(
@@ -144,5 +148,6 @@ if __name__ == "__main__":
                 "embedsignature": True,  # Keep function signatures for debugging
             },
             build_dir=get_build_dir(),
-        ) + pybind_extensions,
+        )
+        + pybind_extensions,
     )

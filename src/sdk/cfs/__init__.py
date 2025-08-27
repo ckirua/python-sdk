@@ -8,6 +8,7 @@ from .flist import (
     create_list_reader,
 )
 from .toml import read_toml, write_toml
+from .arrow import pa_file_exists, pa_write_parquet_table, read_csv_bytes
 
 __all__: Tuple[str, ...] = (
     "ZipFile",
@@ -19,4 +20,7 @@ __all__: Tuple[str, ...] = (
     "create_list_reader",
     "read_toml",
     "write_toml",
+    "pa_file_exists",
+    "pa_write_parquet_table",
+    "read_csv_bytes",
 )
