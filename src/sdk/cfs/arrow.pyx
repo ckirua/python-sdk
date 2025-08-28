@@ -56,7 +56,7 @@ cpdef void pa_write_parquet_table(
 ):
     pq.write_table(
             table,
-            path.encode('utf8'),
+            path,
             filesystem=filesystem,
             compression=compression
         )
